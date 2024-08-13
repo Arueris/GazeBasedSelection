@@ -23,7 +23,7 @@ def calc_dispersion_old(gvs):
     return angle / len(gvs)
 
 def calc_dispersion(gvs):
-    gv_mean = unit_vector(np.sum(gvs, axis=0))
+    gv_mean = unit_vector(np.mean(gvs, axis=0))
     gvs_u = gvs / np.linalg.norm(gvs, axis=1)[:, np.newaxis]
     return np.mean(np.rad2deg(np.arccos(np.clip(np.sum(gvs_u * gv_mean, axis=1), -1.0, 1.0))))
 
