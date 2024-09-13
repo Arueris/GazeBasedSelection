@@ -1,4 +1,11 @@
 import numpy as np
+import statsmodels.api as sm
+
+def calculate_trend(x, y):
+    x = sm.add_constant(x)
+    model = sm.OLS(y, x)
+    results = model.fit()
+    return results.params[1]
 
 def get_color(value):
     if value < 31:
@@ -28,7 +35,8 @@ def calc_dispersion(gvs):
     return np.mean(np.rad2deg(np.arccos(np.clip(np.sum(gvs_u * gv_mean, axis=1), -1.0, 1.0))))
 
 def calc_dispersion_index(gvs):
-    gv_mean = np.mean(gvs, axis=0)
+    gvs_u = gvs / np.linalg.norm(gvs, axis=1)[:, np.newaxis]
+    gv_mean = np.mean(gvs_u, axis=0)
     return np.linalg.norm(gv_mean)
 
 def event_detection(gvs, timestamps, th_dispersion, th_duration_max, th_duration_min):
@@ -55,10 +63,14 @@ def event_detection(gvs, timestamps, th_dispersion, th_duration_max, th_duration
     return fixations
 
 if __name__=="__main__":
-    from data import *
-    rec = Recording("Data/TestRecordings/ALena")
-    gvs = rec["nod"]["Gaze120"].loc[rec["nod"]["Gaze120"].Message=="gaze sample", ["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]].to_numpy()
-    t = rec["nod"]["Gaze120"].loc[rec["nod"]["Gaze120"].Message=="gaze sample", "Device Timestamp"].to_numpy()
-    fixations = event_detection(gvs, t, 2, 300, 50)
-    for i, fix in enumerate(fixations):
-        print(i, fix)
+    # from data import *
+    # rec = Recording("Data/TestRecordings/ALena")
+    # gvs = rec["nod"]["Gaze120"].loc[rec["nod"]["Gaze120"].Message=="gaze sample", ["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]].to_numpy()
+    # t = rec["nod"]["Gaze120"].loc[rec["nod"]["Gaze120"].Message=="gaze sample", "Device Timestamp"].to_numpy()
+    # fixations = event_detection(gvs, t, 2, 300, 50)
+    # for i, fix in enumerate(fixations):
+    #     print(i, fix)
+    x = np.arange(10)
+    y = np.random.rand(10)
+    print(calculate_trend(y, x))
+    

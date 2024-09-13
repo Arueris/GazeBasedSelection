@@ -104,7 +104,7 @@ class Recording:
             if etk_stats:
                 gaze_data_round = gaze_data.loc[(gaze_data["System Timestamp"] > row.StartDeviceTime) & (gaze_data["System Timestamp"] < row.EndDeviceTime), ["Event", "Device Timestamp"]]
                 gaze_data_round = gaze_data_round.query("Event != 'Saccade'")
-                results[row["Round"]]["FixationCount"] = len(gaze_data_round)
+                results[row["Round"]]["FixationCount"] = len(gaze_data_round.Event.unique())
                 results[row["Round"]]["MeanFixationDuration"] = gaze_data_round.groupby("Event").agg({"Device Timestamp": lambda x: x.iloc[-1] - x.iloc[0]}).mean()["Device Timestamp"]
         return results
     
@@ -132,6 +132,7 @@ class Recording:
         for cond in tqdm(Recording.conditions):
             self.calc_events(cond, th_dispersion, min_fixation_duration, max_fixation_duration)
 
+    
 
 class Recordings:
     def __init__(self, path):
