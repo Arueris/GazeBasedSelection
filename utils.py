@@ -1,5 +1,6 @@
 import numpy as np
 import statsmodels.api as sm
+from filterpy.kalman import KalmanFilter
 
 def calculate_trend(x, y):
     x = sm.add_constant(x)
@@ -11,7 +12,7 @@ def get_color(value):
     if value < 31:
         return np.array([8, 171, 29]) / 255
     if value < 71:
-        return np.array([255, 128, 0]) / 255
+        return np.array([255, 255, 0]) / 255
     return np.array([179, 19, 19]) / 255
 
 def unit_vector(v):
@@ -61,6 +62,21 @@ def event_detection(gvs, timestamps, th_dispersion, th_duration_max, th_duration
             start_idx = i
             t0 = t
     return fixations
+
+def use_kalman_filter(gvs):
+    kf = KalmanFilter(dim_x=3, dim_z=3)
+    kf.x = gvs[:1].reshape(3, 1)
+    kf.H = np.eye(3)
+    kf.P = np.eye(3) * 0.1
+    kf.Q = np.eye(3) * 0.1
+    kf.R = np.eye(3) * 0.1
+    gvs_filtered = np.empty_like(gvs)
+    for i in range(len(gvs)):
+        kf.predict()
+        kf.update(gvs[i])
+        gvs_filtered[i] = kf.x.copy().squeeze()
+    return gvs_filtered
+
 
 if __name__=="__main__":
     # from data import *

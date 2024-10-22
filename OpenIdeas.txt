@@ -1,0 +1,25 @@
+
+
+
+Was ich noch anpassen möchte:
+
+- Flugpunkte nur auf einer Seite, so dass die Suchzeit nicht so ins Gewicht fällt (test it)
+
+- Visual feedback über den Gazepunkt bei der Head direction (test it)
+
+- Invers nod erlauben (umbenennen der Methode zu vertical head movement?)
+
+- Parameter reduzieren, schauen, welche von den meisten ungefähr gleich gelassen wurden
+
+- Bei Smooth Pursuit: Tracking Duration Wertebereich anpassen (keiner wird dort 2 Sekunden nehmen!)
+
+- Additional Question in the questionnaire-scene: How important was to adjust the parameter?
+	- Fragen erklären!!1
+	
+	
+	
+	
+	
+Font Size auf 10 stellen (Target)
+
+change time to select to 0.5 nod

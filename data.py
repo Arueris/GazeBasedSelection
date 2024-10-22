@@ -8,10 +8,19 @@ import utils
 class Recording:
     conditions = ["gaze", "headAndGaze", "nod", "smoothPursuit"]
     parameter = {
-        "gaze": ["GazeCorrection", "DwellTime"],
-        "headAndGaze": ["GazeCorrection", "HeadGazeCorrection", "DwellTime"],
+        "gaze": ["DwellTime"],
+        "headAndGaze": ["HeadGazeCorrection", "DwellTime"],
         "nod": ["DegreeEnd", "DegreeMove"],
-        "smoothPursuit": ["TimeToSelect", "CorrelationTH", "Velocity", "Shape"]
+        "smoothPursuit": ["CorrelationTH", "Shape"]
+    }
+
+    group_definition = {
+        1: ["gaze", "headAndGaze", "nod", "smoothPursuit"],
+        2: ["gaze", "nod", "headAndGaze", "smoothPursuit"],
+        3: ["gaze", "nod", "smoothPursuit", "headAndGaze"],
+        4: ["gaze", "smoothPursuit", "nod", "headAndGaze"],
+        5: ["gaze", "smoothPursuit", "headAndGaze", "nod"],
+        6: ["gaze", "headAndGaze", "smoothPursuit", "nod"]
     }
     
     
@@ -23,10 +32,13 @@ class Recording:
 
     @staticmethod
     def _read_condition(path, condition):
+        files = os.listdir(os.path.join(path, condition))
         scene_data = pd.read_table(os.path.join(path, condition, "SceneData.tsv"), sep="\t", decimal=",")
-        gaze = pd.read_table(os.path.join(path, condition, "gaze.csv"), sep="\t", decimal=",")
+        gaze_file = "gaze_event.csv" if "gaze_event.csv" in files else "gaze.csv"
+        gaze = pd.read_table(os.path.join(path, condition, gaze_file), sep="\t", decimal=",")
         gaze = gaze.loc[gaze.isValid]
-        gaze120 = pd.read_table(os.path.join(path, condition, "gaze_120fps.csv"), sep="\t", decimal=",")
+        gaze120_file = "gaze_120fps_event.csv" if "gaze_120fps_event.csv" in files else "gaze_120fps.csv"
+        gaze120 = pd.read_table(os.path.join(path, condition, gaze120_file), sep="\t", decimal=",")
         gaze120 = gaze120.loc[gaze120.isValid]
         round_data = pd.read_table(os.path.join(path, condition, "RoundData.tsv"), sep="\t", decimal=",")
         # files = os.listdir(os.path.join(path, condition))
@@ -51,9 +63,14 @@ class Recording:
         return pd.DataFrame(answers)
     
     def __init__(self, path) -> None:
-        self.name, self.age, self.gender, self.etk_exp, self.vr_exp = Recording._read_user_informations(path)
+        self.path = path
+        self.name, self.age, self.gender, self.et_exp, self.vr_exp = Recording._read_user_informations(path)
+        self.pref_method = None
+        self.visual_aid = None
         self.data = {c: Recording._read_condition(path, c) for c in Recording.conditions}
         self.answers = Recording._read_questionnaires(path)
+        self.summarized_final_rounds = {cond: None for cond in Recording.conditions}
+        self.group = self._check_group()
 
     def __getitem__(self, index):
         if index in Recording.conditions:
@@ -63,8 +80,21 @@ class Recording:
         return None
     
     def __repr__(self):
-        return f"Recording of {self.name}; Age {self.age}; Gender {self.gender}; ETK experience {self.etk_exp}; VR experience {self.vr_exp}."
+        return f"Recording of {self.name}; Age {self.age}; Gender {self.gender}; ET experience {self.et_exp}; VR experience {self.vr_exp}; Visual Aid {self.visual_aid}; Preferred method {self.pref_method}."
     
+    def _check_group(self):
+        timestamps = list()
+        method = list()
+        for cond in Recording.conditions:
+            method.append(cond)
+            timestamps.append(self[cond]["Gaze"].iloc[0]["System Timestamp"])
+        method = [method[i] for i in np.argsort(timestamps)]
+        for k in Recording.group_definition:
+            if method == Recording.group_definition[k]:
+                return k
+        print(f"[WARNING] Participant {self.name} has no group!")
+        return -1
+
     def get_rounds(self, condition, exclude_early_stops=True):
         round_data = self[condition]["RoundData"]
         if exclude_early_stops:
@@ -77,7 +107,9 @@ class Recording:
         start, end = roundData.loc[roundData.Round==round, ["StartDeviceTime", "EndDeviceTime"]]
         return gaze.loc[(gaze["Device Timestamp"] > start) & (gaze["Device Timestamp"] < end)]
 
-    def summarize_rounds(self, condition):
+    def summarize_rounds(self, condition, force_recalculation=False):
+        if self.summarized_final_rounds[condition] is not None and not force_recalculation:
+            return self.summarized_final_rounds[condition]
         round_data = self.get_final_rounds(condition)
         scene_data = self[condition]["SceneData"]
         etk_stats = "Event" in self[condition]["Gaze120"].columns
@@ -106,6 +138,7 @@ class Recording:
                 gaze_data_round = gaze_data_round.query("Event != 'Saccade'")
                 results[row["Round"]]["FixationCount"] = len(gaze_data_round.Event.unique())
                 results[row["Round"]]["MeanFixationDuration"] = gaze_data_round.groupby("Event").agg({"Device Timestamp": lambda x: x.iloc[-1] - x.iloc[0]}).mean()["Device Timestamp"]
+        self.summarized_final_rounds[condition] = results
         return results
     
     def get_final_rounds(self, condition):
@@ -117,7 +150,9 @@ class Recording:
         vali = roundData[[f"{p}_final" for p in paras]].all(axis=1)
         return self[condition]["RoundData"].loc[vali & ~roundData.EarlyStop]
 
-    def calc_events(self, condition, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300):
+    def calc_events(self, condition, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300, force_calculate=False):
+        if "Event" in self[condition]["Gaze"].columns and not force_calculate:
+            return
         vali = (self[condition]["Gaze120"].Message=="gaze sample") & self[condition]["Gaze120"].isValid
         gvs = self[condition]["Gaze120"].loc[vali, ["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]].to_numpy()
         t = self[condition]["Gaze120"].loc[vali, "Device Timestamp"].to_numpy()
@@ -127,26 +162,52 @@ class Recording:
         for i, fix in enumerate(fixations):
             self[condition]["Gaze"].loc[(self[condition]["Gaze"]["Device Timestamp"] >= fix["StartTimestamp"]) & (self[condition]["Gaze"]["Device Timestamp"] <= fix["EndTimestamp"]), "Event"] = f"Fixation_{i}"
             self[condition]["Gaze120"].loc[(self[condition]["Gaze120"]["Device Timestamp"] >= fix["StartTimestamp"]) & (self[condition]["Gaze120"]["Device Timestamp"] <= fix["EndTimestamp"]), "Event"] = f"Fixation_{i}"
+        self[condition]["Gaze"].to_csv(os.path.join(self.path, condition, "gaze_event.csv"), sep="\t", decimal=",")
+        self[condition]["Gaze120"].to_csv(os.path.join(self.path, condition, "gaze_120fps_event.csv"), sep="\t", decimal=",")
+        
 
     def calc_events_all_conditions(self, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300):
-        for cond in tqdm(Recording.conditions):
+        for cond in tqdm(Recording.conditions, desc=f"Calc events of Pat {self.name}"):
             self.calc_events(cond, th_dispersion, min_fixation_duration, max_fixation_duration)
 
     
 
 class Recordings:
     def __init__(self, path):
-        self.recs = [Recording(os.path.join(path, x)) for x in os.listdir(path)]
+        pats = [x for x in os.listdir(path) if "." not in x]
+        self.recs = [Recording(os.path.join(path, x)) for x in tqdm(pats)]
+        self.pat_data = pd.read_csv(os.path.join(path, "pat_data.csv"), sep="\t", decimal=",", index_col=0)
+        self._update_rec_data()
     
     def __len__(self):
         return len(self.recs)
     
     def __getitem__(self, index):
-        return self.recs[index]
-    
-    def get_summarized_rounds(self, condition):
+        if isinstance(index, int):
+            return self.recs[index]
+        elif isinstance(index, str):
+            for rec in self:
+                if rec.name==index:
+                    return rec
+        elif isinstance(index, list) or isinstance(index, np.ndarray):
+            return [self[x] for x in index]
+        else:
+            raise TypeError("Invalid Argument Type")
+
+    def _update_rec_data(self):
+        for rec in self:
+            name = rec.name
+            if name in self.pat_data.index:
+                rec.age, rec.gender, rec.vr_exp, rec.et_exp, rec.pref_method, rec.visual_aid = self.pat_data.loc[name, ["Age", "Gender", "VRExperience", "ETExperience", "PreferedMethod", "VisualAid"]]
+            else:
+                print(f"[WARNING] {name} not in pat_data.")
+
+    def get_summarized_rounds(self, condition, gender=False):
         results = dict()
         for rec in self:
+            if gender:
+                if rec.gender != gender:
+                    continue
             results[rec.name] = rec.summarize_rounds(condition)
         return results
 
@@ -155,36 +216,48 @@ class Recordings:
             for cond in Recording.conditions:
                 rec.calc_events(cond, th_dispersion, min_fixation_duration, max_fixation_duration)
 
-    def get_answers(self, condition, simulate_answers=False):
+    def get_answers(self, condition, gender=False):
         answers = dict()
         for rec in self:
+            if gender:
+                if rec.gender != gender:
+                    continue
             answers[rec.name] = dict()
             for index, row in rec["answers"].iterrows():
                 answers[rec.name][index] = row[condition]
-        if simulate_answers:
-            import random
-            for i in range(20):
-                n = f"sim_{i}"
-                answers[n] = dict()
-                for q in rec["answers"].index:
-                    answers[n][q] = random.randint(0, 10) * 10
         return pd.DataFrame(answers).transpose()
     
-    def get_all_answers(self, simulate_answers=False):
+    def get_all_answers(self, use_z_score=False, gender=False):
         questions = list(self[0]["answers"].index)
         answers = {x: {y: list() for y in questions} for x in Recording.conditions}
         for rec in self:
-            rec_answers = rec["answers"].to_dict()
+            if gender:
+                if rec.gender != gender:
+                    continue
+            if use_z_score:
+                rec_answers = rec["answers"]
+                rec_answers = (rec_answers - rec_answers.loc[questions[:-1]].mean())/rec_answers.loc[questions[:-1]].std()
+            else:
+                rec_answers = rec["answers"].to_dict()
             for cond in Recording.conditions:
                 for q in questions:
                     answers[cond][q].append(rec_answers[cond][q])
-        if simulate_answers:
-            import random
-            for _ in range(20):
-                for cond in Recording.conditions:
-                    for q in questions:
-                        answers[cond][q].append(random.randint(0, 10) * 10)
         return answers
+    
+    def get_final_parameters(self, condition, gender=False):
+        paras = {x: list() for x in Recording.parameter[condition]}
+        paras["Participant"] = list()
+        for rec in self:
+            if gender:
+                if rec.gender != gender:
+                    continue
+            final_rounds_paras = rec.get_final_rounds(condition).loc[:, Recording.parameter[condition]]
+            paras["Participant"].append(rec.name)
+            for p in Recording.parameter[condition]:
+                para = final_rounds_paras[p].to_numpy()[0]
+                if type(para)==float: para=round(para,2)
+                paras[p].append(para)
+        return paras
 
 
 
@@ -194,9 +267,6 @@ if __name__=="__main__":
     user = "ALena"
     # rec = Recording(os.path.join(path, user))
     recs = Recordings(path)
-    answers = recs.get_all_answers(simulate_answers=True)
-    for cond in answers:
-        print(cond)
-        for q in answers[cond]:
-            print(f"    {q}: {answers[cond][q]}")
+    print(recs.get_final_parameters("smoothPursuit"))
 
+    
