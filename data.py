@@ -162,8 +162,8 @@ class Recording:
         for i, fix in enumerate(fixations):
             self[condition]["Gaze"].loc[(self[condition]["Gaze"]["Device Timestamp"] >= fix["StartTimestamp"]) & (self[condition]["Gaze"]["Device Timestamp"] <= fix["EndTimestamp"]), "Event"] = f"Fixation_{i}"
             self[condition]["Gaze120"].loc[(self[condition]["Gaze120"]["Device Timestamp"] >= fix["StartTimestamp"]) & (self[condition]["Gaze120"]["Device Timestamp"] <= fix["EndTimestamp"]), "Event"] = f"Fixation_{i}"
-        self[condition]["Gaze"].to_csv(os.path.join(self.path, condition, "gaze_event.csv"), sep="\t", decimal=",")
-        self[condition]["Gaze120"].to_csv(os.path.join(self.path, condition, "gaze_120fps_event.csv"), sep="\t", decimal=",")
+        self[condition]["Gaze"].to_csv(os.path.join(self.path, condition, "gaze_event.csv"), sep="\t", decimal=",", index=False)
+        self[condition]["Gaze120"].to_csv(os.path.join(self.path, condition, "gaze_120fps_event.csv"), sep="\t", decimal=",", index=False)
         
 
     def calc_events_all_conditions(self, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300):
@@ -211,10 +211,10 @@ class Recordings:
             results[rec.name] = rec.summarize_rounds(condition)
         return results
 
-    def calc_events(self, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300):
+    def calc_events(self, th_dispersion=1, min_fixation_duration=50, max_fixation_duration=300, force_calculation=False):
         for rec in self:
             for cond in Recording.conditions:
-                rec.calc_events(cond, th_dispersion, min_fixation_duration, max_fixation_duration)
+                rec.calc_events(cond, th_dispersion, min_fixation_duration, max_fixation_duration, force_calculate=force_calculation)
 
     def get_answers(self, condition, gender=False):
         answers = dict()
