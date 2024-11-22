@@ -1,5 +1,6 @@
 Data/*
 Pictures/*
+AutoEncoder/HyperparameterResults/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
