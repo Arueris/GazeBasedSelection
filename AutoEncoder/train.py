@@ -21,7 +21,7 @@ class GazeBasedInteraction(Dataset):
         return self.data[idx]
 
 
-def train_lstm_autoencoder(train_data, batch_size, num_epochs=200, num_workers=0, lstm_model=LSTMAutoencoder, lstm_hidden_dim=64, lstm_latent_dim=16, lstm_num_layers=1, learning_rate=1e-3, use_gpu=False, datapath="Data/Dataset_Prepare/"):
+def train_lstm_autoencoder(train_data, batch_size, num_epochs=200, num_workers=0, lstm_model=LSTMAutoencoder, lstm_hidden_dim=64, lstm_latent_dim=16, lstm_num_layers=1, learning_rate=1e-3, use_gpu=False, desc_tqdm=None):
     input_dim = 1       # Number of features (for univariate time series)
     # hidden_dim = 64     # Number of hidden units in LSTM layers
     # latent_dim = 16     # Size of the latent vector
@@ -50,7 +50,8 @@ def train_lstm_autoencoder(train_data, batch_size, num_epochs=200, num_workers=0
     losses = list()
     model.train()
     # Training loop
-    pbar = tqdm(range(num_epochs), desc="LSTM AutoEncoder")
+    desc = desc_tqdm if desc_tqdm is not None else "LSTM Autoencoder"
+    pbar = tqdm(range(num_epochs), desc=desc)
     for _ in pbar:
         # pbar = tqdm(dataloader, desc=f"LSTM AutoEncoder Epoch {epoch+1}/{num_epochs}")
         runningLoss = 0
@@ -126,7 +127,7 @@ def main():
     # n = int(len(train_data) * 0.7)
     for name, m in [("ChatGPT", LSTMAutoencoder), ("GIT", LSTMAE)]:
         model, losses = train_lstm_autoencoder(train_data, batch_size=1000, num_epochs=400, lstm_model=m, num_workers=0, use_gpu=True,
-                                               lstm_hidden_dim=128, lstm_latent_dim=32, lstm_num_layers=3, learning_rate=1e-3)
+                                               lstm_hidden_dim=128, lstm_latent_dim=32, lstm_num_layers=1, learning_rate=1e-3)
         print(f"{name} Count of parameters:", count_parameters(model))
         # plt.plot(losses)
         # plt.title(f"Train losses {name}")
