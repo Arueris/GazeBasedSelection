@@ -1,6 +1,7 @@
 import numpy as np
 import statsmodels.api as sm
 from filterpy.kalman import KalmanFilter
+import os
 
 def calculate_trend(x, y):
     x = sm.add_constant(x)
@@ -76,6 +77,8 @@ def use_kalman_filter(gvs):
         kf.update(gvs[i])
         gvs_filtered[i] = kf.x.copy().squeeze()
     return gvs_filtered
+
+
 
 
 if __name__=="__main__":
