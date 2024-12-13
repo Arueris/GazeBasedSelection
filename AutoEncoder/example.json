@@ -1,0 +1,1 @@
+{"name": "bla", "res": 0.890709001, "paras": {"num_channels": [8, 16], "kernel_size": 5, "latent_dim": 16}, "train": {"num_epochs": 100, "batch_size": 1000, "criterion": "MSELoss()"}, "th_perc": 95, "th_value": 0.335}

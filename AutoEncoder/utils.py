@@ -30,3 +30,12 @@ def load_np_dataset(fps, cond, f, b, a):
     names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
     names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
     return angles_correct, angles_incorrect, names_correct, names_incorrect   
+
+def parese_model_info(path):
+    with open(path, "r") as f:
+        lines = f.readlines()
+    return lines
+
+if __name__=="__main__":
+    model_infos = parese_model_info("AutoEncoder/Results/TCNAE_CV/Models/TCNAE_480_headAndGaze_info.txt")
+    print(model_infos)

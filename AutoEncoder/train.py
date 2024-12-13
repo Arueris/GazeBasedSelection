@@ -101,7 +101,7 @@ def test_autoencoder(train_samples, correct_samples, incorrect_samples, model, u
                 # out = model(x)
                 mse = torch.mean((out - x)**2, dim=(1, 2))
                 mses[k].append(mse)
-            mses[k] = torch.concat(mses[k])
+            mses[k] = torch.concat(mses[k]) if len(mses[k]) > 0 else None
     return mses["Train"], mses["Correct"], mses["Incorrect"]
 
 

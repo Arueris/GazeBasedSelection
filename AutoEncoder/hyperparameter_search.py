@@ -9,20 +9,21 @@ import utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 import itertools
+import json
 
 
 def write_line_log(line, path):
     with open(path, "a") as f:
         f.write(line)
 
-def create_plot(mse_correct, mse_incorrect, th, losses, path, name):
+def create_plot(mse_train, mse_correct, mse_incorrect, th, losses, path, name, th_perc=None):
     fig, (ax_recall, ax_hist) = plt.subplots(2, figsize=(10,5))
     # ax_loss.plot(losses)
     # ax_loss.set_title("Train_loss")
     # ax_loss.set_xlabel("Epoch")
 
     perc = np.linspace(80, 100, 100)
-    ths = np.percentile(mse_correct.cpu().numpy(), perc)
+    ths = np.percentile(mse_train.cpu().numpy(), perc)
     res = {"TH": list(), "Correct": list(), "Incorrect": list()}
     for p, t in zip(perc, ths):
         correct_acc = np.mean((mse_correct < t).cpu().numpy())
@@ -42,9 +43,14 @@ def create_plot(mse_correct, mse_incorrect, th, losses, path, name):
                   "Incorrect": mse_incorrect.cpu().numpy()},
                   multiple="layer", common_norm=False, stat="percent", ax=ax_hist)
     perc = [80, 90, 95, 99, 100]
-    ths = np.percentile(mse_correct.cpu().numpy(), perc)
-    for p, th in zip(perc, ths):
-        ax_hist.axvline(th, color="red", linestyle="--", alpha=.4, label="Threshold_%d" % p)
+    if th_perc is None:
+        ths = np.percentile(mse_correct.cpu().numpy(), perc)
+        for p, th in zip(perc, ths):
+            ax_hist.axvline(th, color="red", linestyle="--", alpha=.4, label="Threshold_%d" % p)
+            ax_recall.axvline(th, color="red", linestyle="--", label="Threshold")
+    else:
+        ax_hist.axvline(th, color="red", linestyle="--", label="Threshold")
+        ax_recall.axvline(th_perc, color="red", linestyle="--", label="Threshold")
     ax_hist.set_title("MSE Histogram")
     fig.suptitle(f"Model {name}")
     fig.tight_layout()
@@ -114,7 +120,140 @@ def search_hyperparameter(options, foldername):
             torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
-    # TODO: impelment the complete hyper parameter search for every model :-)
+def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,99,100]):
+    model_parameters_names = ["hidden_size", # lstm 
+                        "num_channels", "kernel_size", # tcn 
+                        "latent_dim"]
+    log_columns = ["name", "model_type", "cond", "cv_k"] +  model_parameters_names + ["learning_rate", "count_parameter",
+                   "th_percentile", "th_value", "correct_acc", "incorrect_acc"]
+    f = 62
+    a = 200
+    b = 500
+    fps=90
+    savefolder_all = utils.create_unique_folder(f"AutoEncoder/{foldername}")
+    log_path = os.path.join(savefolder_all, "cv_log.csv")
+    best_model_res_path = os.path.join(savefolder_all, "best_models.csv")
+    modelfolder = utils.create_unique_folder(os.path.join(savefolder_all, "Models"))
+
+    header = ",".join(log_columns)+"\n"
+    write_line_log(header, log_path)
+
+    header_best_model = "model_name,cond,th_perc,correct_acc,incorrect_acc\n"
+    write_line_log(header_best_model, best_model_res_path)
+
+    conditions = ["gaze", "headAndGaze", "nod"]
+    
+    model_number = 0
+    for cond in conditions:
+        best_model_option = {"mean_res": -1}
+        # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
+        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+        pat_names = np.unique(names_correct)
+        n = int(0.7 * len(pat_names))
+        train_pats = pat_names[:n]
+        test_pats = pat_names[n:]
+
+        train_data = angles_correct[np.isin(names_correct, train_pats)]
+        train_names = names_correct[np.isin(names_correct, train_pats)]
+
+        n_fold = int(len(train_pats)/cv_n)
+        vali_folds_names = list()
+        for i in range(cv_n):
+            vali_folds_names.append(train_pats[i*n_fold:(i+1)*n_fold])
+        test_correct = angles_correct[np.isin(names_correct, test_pats)]
+        test_incorrect = angles_incorrect[np.isin(names_incorrect, test_pats)]
+        for m, model_parameters, train_parameters in options:
+            model_number += 1
+            model_name = f"{m.__name__}_{model_number}"
+            res = {x: {"correct": list(), "incorrect": list()} for x in th_percs}
+            for k, vali_parts in enumerate(vali_folds_names):
+                train_fold = train_data[~np.isin(train_names, vali_parts)]
+                vali_fold_correct = angles_correct[np.isin(names_correct, vali_parts)]
+                vali_fold_incorrect = angles_incorrect[np.isin(names_incorrect, vali_parts)]
+                model = m(**model_parameters)
+                model, _ = train.train_autoencoder(model, train_fold, train_parameters["batch_size"],
+                                                        train_parameters["num_epochs"], 
+                                                        train_parameters["criterion"],
+                                                        train_parameters["learning_rate"],
+                                                        train_parameters["use_gpu"],
+                                                        desc_tqdm=f"Model {model_number}/{len(options)*len(conditions)} Fold {k+1}/{cv_n}")
+                count_parameters = train.count_parameters(model)
+                mse_train, mse_correct, mse_incorrect = train.test_autoencoder(train_fold, vali_fold_correct, vali_fold_incorrect, model, 
+                                                                            train_parameters["use_gpu"],
+                                                                            train_parameters["batch_size"])
+                # th = np.percentile(mse_train.cpu().numpy(), 95)
+                ths = np.percentile(mse_train.cpu().numpy(), th_percs)
+                
+                for p, th in zip(th_percs, ths):
+                    correct_acc = np.mean((mse_correct < th).cpu().numpy())
+                    incorrect_acc = np.mean((mse_incorrect > th).cpu().numpy())
+                    res[p]["correct"].append(correct_acc)
+                    res[p]["incorrect"].append(incorrect_acc)
+                    # create_plot(mse_correct, mse_incorrect, th, losses,
+                    #             os.path.join(savefolder, model_name + f"_{p}.png"),
+                    #             model_name)
+                
+                # modelline = f"{model_name},{cond},{lstm_hidden_dim},{lstm_latent_dim},{lstm_num_layer},{lr},{count_parameter},{correct_acc},{incorrect_acc}\n"
+                    modelline = f"{model_name},{model.__class__.__name__},{cond},{k}," + ",".join([f'"{model_parameters[x]}"' if x in model_parameters.keys() else 'na' for x in model_parameters_names]) + \
+                                f",{train_parameters['learning_rate']},{count_parameters},{p},{th},{correct_acc},{incorrect_acc}\n"
+                    
+                    write_line_log(modelline, log_path)
+            for p in res:
+                correct_mean = np.mean(res[p]["correct"])
+                incorrect_mean = np.mean(res[p]["incorrect"])
+                model_mean = (correct_mean + incorrect_mean) / 2
+                if model_mean > best_model_option["mean_res"]:
+                    best_model_option["name"] = model_name
+                    best_model_option["model_type"] = m
+                    best_model_option["mean_res"] = model_mean
+                    best_model_option["model_parameter"] = model_parameters
+                    best_model_option["train_parameter"] = train_parameters
+                    best_model_option["th_perc"] = p
+                
+        if best_model_option["mean_res"] > -1:
+            model = best_model_option["model_type"](**best_model_option["model_parameter"])
+            train_parameters = best_model_option["train_parameter"]
+            model, losses = train.train_autoencoder(model, train_data, train_parameters["batch_size"],
+                                                train_parameters["num_epochs"], 
+                                                train_parameters["criterion"],
+                                                train_parameters["learning_rate"],
+                                                train_parameters["use_gpu"],
+                                                desc_tqdm=f"Final Model {cond}")
+            
+            mse_train, mse_correct, mse_incorrect = train.test_autoencoder(train_data, test_correct, test_incorrect, model, 
+                                                                            train_parameters["use_gpu"],
+                                                                            train_parameters["batch_size"])
+            th = np.percentile(mse_train.cpu().numpy(), best_model_option["th_perc"])
+            create_plot(mse_train, mse_correct, mse_incorrect, th, losses,
+                        os.path.join(savefolder_all, model_name + f"_{cond}.png"),
+                        model_name, th_perc=best_model_option["th_perc"])
+            
+            correct_acc = np.mean((mse_correct < th).cpu().numpy())
+            incorrect_acc = np.mean((mse_incorrect > th).cpu().numpy())
+
+            best_model_line = f'{best_model_option["name"]},{cond},{best_model_option["th_perc"]},{correct_acc},{incorrect_acc}\n'
+            write_line_log(best_model_line, best_model_res_path)
+
+            with open(os.path.join(modelfolder, f"{model_name}_{cond}_info.txt"), "w") as model_file:
+                for k in best_model_option:
+                    if k not in ["model_parameter", "train_parameter", "model_type"]:
+                        model_file.write(f"{k}\t{best_model_option[k]}\n")
+                    elif k == "model_type":
+                        model_file.write(f"{k}\t{best_model_option[k].__name__}\n")
+                    elif k in ["model_parameter", "train_parameter"]:
+                        model_file.write(f"{k}\t")
+                        for j in best_model_option[k]:
+                            model_file.write(f"{j}:{best_model_option[k][j]},")
+                        model_file.write("\n")
+                model_file.write(f"th_value\t{th}\n")
+                model_file.write(f"cond\t{cond}")
+
+
+            torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}_{cond}.pth"))
+
 
 def search_hyperparameter_lstm(
         lstm_hidden_dims=[32, 64, 128],
@@ -235,6 +374,130 @@ def search_hyperparameter_tcn(
                         torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
+def leave_one_subject_out(options, foldername):
+    """
+    Create a leave_one_subject_out validation for each model defined in options.
+
+    ----
+    - options: List of models. Each element of the models consists of four elements:
+            - Model type as class
+            - dictionary with the model parameters
+            - dictionary with the training parameters (num_epochs, batch_size, criterion, learning_rate, use_gpu)
+            - percentile threshold   
+    - foldername: path of the folder to save the results
+    """
+    model_parameters_names = ["hidden_size", # lstm 
+                        "num_channels", "kernel_size", # tcn 
+                        "latent_dim"]
+    log_columns = ["name", "model_type", "cond", "cv_k", "test_participant"] +  model_parameters_names + ["learning_rate", "count_parameter",
+                   "th_percentile", "th_value", "correct_acc", "incorrect_acc"]
+    f = 62
+    a = 200
+    b = 500
+    fps=90
+    savefolder_all = utils.create_unique_folder(f"AutoEncoder/{foldername}")
+    log_path = os.path.join(savefolder_all, "loso_log.csv")
+    best_model_res_path = os.path.join(savefolder_all, "end_models.csv")
+    modelfolder = utils.create_unique_folder(os.path.join(savefolder_all, "Models"))
+
+    header = ",".join(log_columns)+"\n"
+    write_line_log(header, log_path)
+
+    header_best_model = "model_name,cond,th_perc,correct_acc,incorrect_acc\n"
+    write_line_log(header_best_model, best_model_res_path)
+
+    # conditions = ["gaze", "headAndGaze", "nod"]
+    conditions = ["nod"]
+    model_number = 0
+    for cond in conditions:
+        # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
+        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+        pat_names = np.unique(names_correct)
+    
+        for m, model_parameters, train_parameters, th in options:
+            model_number += 1
+            model_name = f"{m.__name__}_{model_number}"
+
+            for k, name in enumerate(pat_names):
+                train_fold = angles_correct[names_correct!=name]
+                vali_fold_correct = angles_correct[names_correct==name]
+                vali_fold_incorrect = angles_incorrect[names_incorrect==name]
+                model = m(**model_parameters)
+                model, _ = train.train_autoencoder(model, train_fold, train_parameters["batch_size"],
+                                                        train_parameters["num_epochs"], 
+                                                        train_parameters["criterion"],
+                                                        train_parameters["learning_rate"],
+                                                        train_parameters["use_gpu"],
+                                                        desc_tqdm=f"Model {model_number}/{len(options)*len(conditions)} Fold {k+1}/{len(pat_names)}")
+                count_parameters = train.count_parameters(model)
+
+                mse_train, mse_correct, mse_incorrect = train.test_autoencoder(train_fold, vali_fold_correct, vali_fold_incorrect, model, 
+                                                                            train_parameters["use_gpu"],
+                                                                            train_parameters["batch_size"])
+            
+                
+                t = np.percentile(mse_train.cpu().numpy(), th)
+                # ths = np.percentile(mse_train.cpu().numpy(), th_percs)
+                
+
+                correct_acc = np.mean((mse_correct < t).cpu().numpy()) if mse_correct is not None else np.nan
+                incorrect_acc = np.mean((mse_incorrect > t).cpu().numpy()) if mse_incorrect is not None else np.nan
+
+                # create_plot(mse_correct, mse_incorrect, th, losses,
+                #             os.path.join(savefolder, model_name + f"_{p}.png"),
+                #             model_name)
+                
+                # modelline = f"{model_name},{cond},{lstm_hidden_dim},{lstm_latent_dim},{lstm_num_layer},{lr},{count_parameter},{correct_acc},{incorrect_acc}\n"
+
+                modelline = f"{model_name},{model.__class__.__name__},{cond},{k},{name}," + ",".join([f'"{model_parameters[x]}"' if x in model_parameters.keys() else 'na' for x in model_parameters_names]) + \
+                            f",{train_parameters['learning_rate']},{count_parameters},{th},{t},{correct_acc},{incorrect_acc}\n"
+                    
+                write_line_log(modelline, log_path)
+
+                
+        
+            # model = best_model_option["model_type"](**best_model_option["model_parameter"])
+            model = m(**model_parameters)
+            # train_parameters = best_model_option["train_parameter"]
+            model, losses = train.train_autoencoder(model, angles_correct, train_parameters["batch_size"],
+                                                train_parameters["num_epochs"], 
+                                                train_parameters["criterion"],
+                                                train_parameters["learning_rate"],
+                                                train_parameters["use_gpu"],
+                                                desc_tqdm=f"Final Model {cond}")
+            
+            mse_train, mse_correct, mse_incorrect = train.test_autoencoder(angles_correct, angles_correct, angles_incorrect, model, 
+                                                                            train_parameters["use_gpu"],
+                                                                            train_parameters["batch_size"])
+            t = np.percentile(mse_train.cpu().numpy(), th)
+            create_plot(mse_train, mse_correct, mse_incorrect, t, losses,
+                        os.path.join(savefolder_all, model_name + f"_{cond}.png"),
+                        model_name, th_perc=th)
+            
+            correct_acc = np.mean((mse_correct < t).cpu().numpy())
+            incorrect_acc = np.mean((mse_incorrect > t).cpu().numpy())
+
+            best_model_line = f'{model_name},{cond},{th},{correct_acc},{incorrect_acc}\n'
+            write_line_log(best_model_line, best_model_res_path)
+            train_parameters_print = train_parameters.copy()
+            train_parameters_print["criterion"] = str(train_parameters_print["criterion"])
+            model_info = {
+                "name": model_name,
+                "model_type": m.__class__.__name__,
+                "model_parameter": model_parameters,
+                "train_parameter": train_parameters_print,
+                "th_perc": th,
+                "th_value": t
+            }
+
+            with open(os.path.join(modelfolder, f"{model_name}_{cond}_info.json"), "w") as infofile:
+                json.dump(model_info, infofile)
+
+            torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}_{cond}.pth"))
+
 
 def create_options(
         seq_len=61,   
@@ -334,5 +597,39 @@ if __name__=="__main__":
         latent_dims=[10, 14, 16, 20, 24],
         learning_rates=[1e-2, 1e-3, 1e-4, 1e-5]
     )
-    search_hyperparameter(opt, "TCNAE")
-    
+    opt = [
+        [
+         TCNAE, 
+         {"seq_len": 61, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 3, "latent_dim": 16},
+         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+         99
+        ],
+        [
+         TCNAE, 
+         {"seq_len": 61, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 16},
+         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 1e-5, "use_gpu": True},
+         95
+        ],
+        [
+         TCNAE, 
+         {"seq_len": 61, "input_dim": 1, "num_channels": [8, 16], "kernel_size": 7, "latent_dim": 16},
+         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+         99
+        ],
+        [
+         TCNAE,
+         {"seq_len": 61, "input_dim": 1, "num_channels": [8,16], "kernel_size": 3, "latent_dim": 10},
+         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+         99
+        ]
+    ]
+    # opt = create_options(
+    #     models = [TCNAE],
+    #     channels = [[4, 8], [16, 32, 64]],
+    #     kernel_sizes = [7],
+    #     latent_dims=[24],
+    #     learning_rates=[1e-3,],
+    #     num_epochs=[30]
+    # )
+    # search_hyperparameter_CV(opt, "Results/TCNAE_CV_best_performer")
+    leave_one_subject_out(opt, "Results/LOSO_best_performer")
