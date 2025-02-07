@@ -54,6 +54,9 @@ class TCNAE(nn.Module):
         return f"TCNAE: ts_len {self.ts_len}, input_dim {self.input_dim}, num_channels {self.num_channels}, kernel_size {self.kernel_size}, latent_dim {self.latent_dim}"
 
     def forward(self, x):
+
+        x = x.reshape(x.size(0), 1, x.size(-1))
+
         # Encoder
         encoded = self.encoder(x)
         

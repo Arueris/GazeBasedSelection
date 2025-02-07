@@ -24,9 +24,9 @@ class GazeBasedInteraction(Dataset):
         return self.data[idx]
 
 
-def train_autoencoder(model, train_data, batch_size, num_epochs, criterion, learning_rate=1e-3, use_gpu=False, desc_tqdm=None):
+def train_autoencoder(model, train_data, batch_size, num_epochs, criterion, learning_rate=1e-3, use_gpu=False, num_worker=0, desc_tqdm=None):
     dataset = GazeBasedInteraction(train_data)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_worker, pin_memory=True)
     device = torch.device("cuda") if torch.cuda.is_available() and use_gpu else torch.device("cpu")
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -75,9 +75,9 @@ def test_autoencoder(train_samples, correct_samples, incorrect_samples, model, u
     # dataloader_incorrect = DataLoader(dataset_incorrect, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     dataset_train = GazeBasedInteraction(train_samples)
     dataloader = {
-        "Train": DataLoader(dataset_train, batch_size=batch_size, shuffle=False, num_workers=num_workers),
-        "Correct": DataLoader(dataset_correct, batch_size=batch_size, shuffle=False, num_workers=num_workers),
-        "Incorrect": DataLoader(dataset_incorrect, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        "Train": DataLoader(dataset_train, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True),
+        "Correct": DataLoader(dataset_correct, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True),
+        "Incorrect": DataLoader(dataset_incorrect, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
     }
     
     device = torch.device("cuda") if torch.cuda.is_available() and use_gpu else torch.device("cpu")

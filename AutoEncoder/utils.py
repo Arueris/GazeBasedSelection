@@ -31,9 +31,24 @@ def load_np_dataset(fps, cond, f, b, a):
     names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
     return angles_correct, angles_incorrect, names_correct, names_incorrect   
 
+def try_float(x):
+    try:
+        x = float(x)
+    except:
+        pass
+    return x
+
 def parese_model_info(path):
+    res = dict()
     with open(path, "r") as f:
         lines = f.readlines()
+    for l in lines:
+        l = l.replace("\n", "")
+        l_split = l.split("\t")
+        if "," not in l_split[1]:
+            res[l_split[0]] = try_float(l_split[1])
+        else:
+            para_split = l_split[1].split(",")
     return lines
 
 if __name__=="__main__":

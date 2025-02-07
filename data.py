@@ -206,8 +206,12 @@ class Recordings:
         results = dict()
         for rec in self:
             if gender:
-                if rec.gender != gender:
-                    continue
+                if isinstance(gender, list):
+                    if rec.gender not in gender:
+                        continue
+                if isinstance(gender, str):
+                    if rec.gender != gender:
+                        continue
             results[rec.name] = rec.summarize_rounds(condition)
         return results
 

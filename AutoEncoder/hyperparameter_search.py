@@ -120,16 +120,13 @@ def search_hyperparameter(options, foldername):
             torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
-def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,99,100]):
+def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,99,100], f=62, a=200, b=500, fps=90):
     model_parameters_names = ["hidden_size", # lstm 
                         "num_channels", "kernel_size", # tcn 
                         "latent_dim"]
     log_columns = ["name", "model_type", "cond", "cv_k"] +  model_parameters_names + ["learning_rate", "count_parameter",
-                   "th_percentile", "th_value", "correct_acc", "incorrect_acc"]
-    f = 62
-    a = 200
-    b = 500
-    fps=90
+                   "th_percentile", "th_value", "correct_acc", "incorrect_acc", "n_correct_samples", "n_incorrect_samples"]
+
     savefolder_all = utils.create_unique_folder(f"AutoEncoder/{foldername}")
     log_path = os.path.join(savefolder_all, "cv_log.csv")
     best_model_res_path = os.path.join(savefolder_all, "best_models.csv")
@@ -190,6 +187,8 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
                 for p, th in zip(th_percs, ths):
                     correct_acc = np.mean((mse_correct < th).cpu().numpy())
                     incorrect_acc = np.mean((mse_incorrect > th).cpu().numpy())
+                    n_correct_samples = len(mse_correct)
+                    n_incorrect_samples = len(mse_incorrect)
                     res[p]["correct"].append(correct_acc)
                     res[p]["incorrect"].append(incorrect_acc)
                     # create_plot(mse_correct, mse_incorrect, th, losses,
@@ -198,7 +197,7 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
                 
                 # modelline = f"{model_name},{cond},{lstm_hidden_dim},{lstm_latent_dim},{lstm_num_layer},{lr},{count_parameter},{correct_acc},{incorrect_acc}\n"
                     modelline = f"{model_name},{model.__class__.__name__},{cond},{k}," + ",".join([f'"{model_parameters[x]}"' if x in model_parameters.keys() else 'na' for x in model_parameters_names]) + \
-                                f",{train_parameters['learning_rate']},{count_parameters},{p},{th},{correct_acc},{incorrect_acc}\n"
+                                f",{train_parameters['learning_rate']},{count_parameters},{p},{th},{correct_acc},{incorrect_acc},{n_correct_samples},{n_incorrect_samples}\n"
                     
                     write_line_log(modelline, log_path)
             for p in res:
@@ -374,7 +373,7 @@ def search_hyperparameter_tcn(
                         torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
-def leave_one_subject_out(options, foldername):
+def leave_one_subject_out(options, foldername, f=62, a=200, b=500, fps=90, num_worker=0):
     """
     Create a leave_one_subject_out validation for each model defined in options.
 
@@ -391,10 +390,7 @@ def leave_one_subject_out(options, foldername):
                         "latent_dim"]
     log_columns = ["name", "model_type", "cond", "cv_k", "test_participant"] +  model_parameters_names + ["learning_rate", "count_parameter",
                    "th_percentile", "th_value", "correct_acc", "incorrect_acc"]
-    f = 62
-    a = 200
-    b = 500
-    fps=90
+    
     savefolder_all = utils.create_unique_folder(f"AutoEncoder/{foldername}")
     log_path = os.path.join(savefolder_all, "loso_log.csv")
     best_model_res_path = os.path.join(savefolder_all, "end_models.csv")
@@ -406,20 +402,31 @@ def leave_one_subject_out(options, foldername):
     header_best_model = "model_name,cond,th_perc,correct_acc,incorrect_acc\n"
     write_line_log(header_best_model, best_model_res_path)
 
-    # conditions = ["gaze", "headAndGaze", "nod"]
-    conditions = ["nod"]
+    conditions = ["gaze", "headAndGaze", "nod"]
+    # conditions = ["nod"]
     model_number = 0
-    for cond in conditions:
-        # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
-        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
-        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
-        pat_names = np.unique(names_correct)
+    train_number = 0
+    # for cond in conditions:
+    #     # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
+    #     angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+    #     angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+    #     names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+    #     names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+    #     pat_names = np.unique(names_correct)
     
-        for m, model_parameters, train_parameters, th in options:
-            model_number += 1
-            model_name = f"{m.__name__}_{model_number}"
+    #     for m, model_parameters, train_parameters, th in options:
+    #         model_number += 1
+    #         model_name = f"{m.__name__}_{model_number}"
+    for m, model_parameters, train_parameters, th in options:
+        model_number += 1
+        model_name = f"{m.__name__}_{model_number}"
+        for cond in conditions:
+            train_number += 1
+            angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+            angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+            names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
+            names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+            pat_names = np.unique(names_correct)
 
             for k, name in enumerate(pat_names):
                 train_fold = angles_correct[names_correct!=name]
@@ -431,12 +438,14 @@ def leave_one_subject_out(options, foldername):
                                                         train_parameters["criterion"],
                                                         train_parameters["learning_rate"],
                                                         train_parameters["use_gpu"],
-                                                        desc_tqdm=f"Model {model_number}/{len(options)*len(conditions)} Fold {k+1}/{len(pat_names)}")
+                                                        num_worker=num_worker,
+                                                        desc_tqdm=f"Model {model_number}/{len(options)} Train {train_number}/{len(options)*len(conditions)} Fold {k+1}/{len(pat_names)}")
                 count_parameters = train.count_parameters(model)
 
                 mse_train, mse_correct, mse_incorrect = train.test_autoencoder(train_fold, vali_fold_correct, vali_fold_incorrect, model, 
                                                                             train_parameters["use_gpu"],
-                                                                            train_parameters["batch_size"])
+                                                                            train_parameters["batch_size"],
+                                                                            num_workers=num_worker)
             
                 
                 t = np.percentile(mse_train.cpu().numpy(), th)
@@ -576,6 +585,34 @@ def main():
     ]
     search_hyperparameter(options)
 
+def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
+    opt = create_options(
+            models = [TCNAE],
+            seq_len=52,
+            channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
+            kernel_sizes = [3, 5, 7],
+            latent_dims=[10, 16, 24],
+            learning_rates=[1e-2, 1e-3],
+            num_epochs=[400],
+            batch_sizes=[4000]
+        )
+
+    
+    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_300msAfter", cv_n=5, th_percs=[95, 99], f=53, a=300, b=300, fps=90)
+
+    opt = create_options(
+        models = [TCNAE],
+        seq_len=43,
+        channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
+        kernel_sizes = [3, 5, 7],
+        latent_dims=[10, 16, 24],
+        learning_rates=[1e-2, 1e-3, 1e-4],
+        num_epochs=[400],
+        batch_sizes=[4000]
+    )
+    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200msAfter", cv_n=5, th_percs=[95, 99], f=44, a=200, b=300, fps=90)
+    
+
 if __name__=="__main__":
     # main()
     # opt = create_options(
@@ -590,39 +627,23 @@ if __name__=="__main__":
     #     batch_sizes = [1000],
     #     models = [TCN_VAE, LSTMAE, LSTMAE_small, TCNAE, LSTM_VAE],
     #     use_gpu = True)
-    opt = create_options(
-        models = [TCNAE],
-        channels = [[4, 8], [8, 16], [32, 64], [16, 32, 64]],
-        kernel_sizes = [3, 5, 7],
-        latent_dims=[10, 14, 16, 20, 24],
-        learning_rates=[1e-2, 1e-3, 1e-4, 1e-5]
-    )
-    opt = [
-        [
-         TCNAE, 
-         {"seq_len": 61, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 3, "latent_dim": 16},
-         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
-         99
-        ],
-        [
-         TCNAE, 
-         {"seq_len": 61, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 16},
-         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 1e-5, "use_gpu": True},
-         95
-        ],
-        [
-         TCNAE, 
-         {"seq_len": 61, "input_dim": 1, "num_channels": [8, 16], "kernel_size": 7, "latent_dim": 16},
-         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
-         99
-        ],
-        [
-         TCNAE,
-         {"seq_len": 61, "input_dim": 1, "num_channels": [8,16], "kernel_size": 3, "latent_dim": 10},
-         {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
-         99
-        ]
-    ]
+    # opt = create_options(
+    #     models = [TCNAE],
+    #     channels = [[4, 8], [8, 16], [32, 64], [16, 32, 64]],
+    #     kernel_sizes = [3, 5, 7],
+    #     latent_dims=[10, 14, 16, 20, 24],
+    #     learning_rates=[1e-2, 1e-3, 1e-4, 1e-5]
+    # )
+    # opt = [
+    #     [
+    #      TCNAE,
+    #      {"seq_len": 61, "input_dim": 1, "num_channels": [8,16], "kernel_size": 3, "latent_dim": 10},
+    #      {"num_epochs": 400, "batch_size": 1000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+    #      99
+    #     ]
+    # ]
+
+    # opt = [x + [y] for y in [95, 99] for x in opt]
     # opt = create_options(
     #     models = [TCNAE],
     #     channels = [[4, 8], [16, 32, 64]],
@@ -631,5 +652,28 @@ if __name__=="__main__":
     #     learning_rates=[1e-3,],
     #     num_epochs=[30]
     # )
-    # search_hyperparameter_CV(opt, "Results/TCNAE_CV_best_performer")
-    leave_one_subject_out(opt, "Results/LOSO_best_performer")
+    
+
+    opt = [
+        [
+            TCNAE,
+            {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 7, "latent_dim": 10},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+            99
+        ],
+        [
+            TCNAE,
+            {"seq_len": 43, "input_dim": 1, "num_channels": [8, 16], "kernel_size": 5, "latent_dim": 16},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
+            95
+        ],
+        [
+            TCNAE,
+            {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 3, "latent_dim": 10},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
+            99
+        ]
+    ]
+    leave_one_subject_out(opt, "Results/LOSO_a200_b300_f44_seq43",
+                          a=200, b=300, f=44, fps=90,
+                          num_worker=0)
