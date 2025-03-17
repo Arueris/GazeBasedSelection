@@ -12,6 +12,8 @@ def create_unique_folder(base_folder_name):
 
     # While a folder with this name exists, modify the name
     while os.path.exists(folder_name):
+        if len(os.listdir(folder_name)) == 0:
+            return folder_name
         folder_name = f"{base_folder_name}_{count}"
         count += 1
 

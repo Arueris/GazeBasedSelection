@@ -57,16 +57,13 @@ def create_plot(mse_train, mse_correct, mse_incorrect, th, losses, path, name, t
     plt.savefig(path)
     plt.close()
 
-def search_hyperparameter(options, foldername):
+def search_hyperparameter(options, foldername, f=62, a=200, b=300, fps=90):
     model_parameters_names = ["hidden_size", # lstm 
                         "num_channels", "kernel_size", # tcn 
                         "latent_dim"]
     log_columns = ["model", "cond"] +  model_parameters_names + ["learning_rate", "count_parameter",
-                   "correct_acc", "incorrect_acc"]
-    f = 62
-    a = 200
-    b = 500
-    fps=90
+                   "correct_acc", "incorrect_acc", "n_correct", "n_incorrect"]
+    
     savefolder_all = utils.create_unique_folder(f"AutoEncoder/{foldername}")
     log_path = os.path.join(savefolder_all, "results_log.csv")
     modelfolder = utils.create_unique_folder(os.path.join(savefolder_all, "Models"))
@@ -90,7 +87,7 @@ def search_hyperparameter(options, foldername):
         train_data = angles_correct[np.isin(names_correct, train_pats)]
         test_correct = angles_correct[np.isin(names_correct, test_pats)]
         test_incorrect = angles_incorrect[np.isin(names_incorrect, test_pats)]
-        for m, model_parameters, train_parameters in options:
+        for m, model_parameters, train_parameters, th_perc in options:
             model = m(**model_parameters)
             model_name = f"{model.__class__.__name__}_{model_number}"
             model_number += 1
@@ -104,17 +101,17 @@ def search_hyperparameter(options, foldername):
             mse_train, mse_correct, mse_incorrect = train.test_autoencoder(train_data, test_correct, test_incorrect, model, 
                                                                            train_parameters["use_gpu"],
                                                                            train_parameters["batch_size"])
-            th = np.percentile(mse_train.cpu().numpy(), 95)
+            th = np.percentile(mse_train.cpu().numpy(), th_perc)
             correct_acc = np.mean((mse_correct < th).cpu().numpy())
             incorrect_acc = np.mean((mse_incorrect > th).cpu().numpy())
 
-            create_plot(mse_correct, mse_incorrect, th, losses,
+            create_plot(mse_train, mse_correct, mse_incorrect, th, losses,
                         os.path.join(savefolder, model_name + ".png"),
                         model_name)
             
             # modelline = f"{model_name},{cond},{lstm_hidden_dim},{lstm_latent_dim},{lstm_num_layer},{lr},{count_parameter},{correct_acc},{incorrect_acc}\n"
             modelline = f"{model_name},{cond}," + ",".join([f'"{model_parameters[x]}"' if x in model_parameters.keys() else 'na' for x in model_parameters_names]) + \
-                        f",{train_parameters['learning_rate']},{count_parameters},{correct_acc},{incorrect_acc}\n"
+                        f",{train_parameters['learning_rate']},{count_parameters},{correct_acc},{incorrect_acc},{len(mse_correct)},{len(mse_incorrect)}\n"
             
             write_line_log(modelline, log_path)
             torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
@@ -135,7 +132,7 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
     header = ",".join(log_columns)+"\n"
     write_line_log(header, log_path)
 
-    header_best_model = "model_name,cond,th_perc,correct_acc,incorrect_acc\n"
+    header_best_model = "model_name,cond,th_perc,correct_acc,incorrect_acc,n_correct,n_incorrect\n"
     write_line_log(header_best_model, best_model_res_path)
 
     conditions = ["gaze", "headAndGaze", "nod"]
@@ -144,10 +141,10 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
     for cond in conditions:
         best_model_option = {"mean_res": -1}
         # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
-        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
-        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
         pat_names = np.unique(names_correct)
         n = int(0.7 * len(pat_names))
         train_pats = pat_names[:n]
@@ -233,7 +230,7 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
             correct_acc = np.mean((mse_correct < th).cpu().numpy())
             incorrect_acc = np.mean((mse_incorrect > th).cpu().numpy())
 
-            best_model_line = f'{best_model_option["name"]},{cond},{best_model_option["th_perc"]},{correct_acc},{incorrect_acc}\n'
+            best_model_line = f'{best_model_option["name"]},{cond},{best_model_option["th_perc"]},{correct_acc},{incorrect_acc},{len(mse_correct)},{len(mse_incorrect)}\n'
             write_line_log(best_model_line, best_model_res_path)
 
             with open(os.path.join(modelfolder, f"{model_name}_{cond}_info.txt"), "w") as model_file:
@@ -422,10 +419,10 @@ def leave_one_subject_out(options, foldername, f=62, a=200, b=500, fps=90, num_w
         model_name = f"{m.__name__}_{model_number}"
         for cond in conditions:
             train_number += 1
-            angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-            angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
-            names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
-            names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")
+            angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+            angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+            names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+            names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
             pat_names = np.unique(names_correct)
 
             for k, name in enumerate(pat_names):
@@ -586,19 +583,19 @@ def main():
     search_hyperparameter(options)
 
 def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
-    opt = create_options(
-            models = [TCNAE],
-            seq_len=52,
-            channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
-            kernel_sizes = [3, 5, 7],
-            latent_dims=[10, 16, 24],
-            learning_rates=[1e-2, 1e-3],
-            num_epochs=[400],
-            batch_sizes=[4000]
-        )
+    # opt = create_options(
+    #         models = [TCNAE],
+    #         seq_len=52,
+    #         channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
+    #         kernel_sizes = [3, 5, 7],
+    #         latent_dims=[10, 16, 24],
+    #         learning_rates=[1e-2, 1e-3],
+    #         num_epochs=[400],
+    #         batch_sizes=[4000]
+    #     )
 
     
-    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_300msAfter", cv_n=5, th_percs=[95, 99], f=53, a=300, b=300, fps=90)
+    # search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_300msAfter", cv_n=5, th_percs=[95, 99], f=53, a=300, b=300, fps=90)
 
     opt = create_options(
         models = [TCNAE],
@@ -613,7 +610,64 @@ def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
     search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200msAfter", cv_n=5, th_percs=[95, 99], f=44, a=200, b=300, fps=90)
     
 
+def execute_loso_tcnae():
+    # opt = [
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 7, "latent_dim": 10},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+    #         99
+    #     ],
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [8, 16], "kernel_size": 5, "latent_dim": 16},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
+    #         95
+    #     ],
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 3, "latent_dim": 10},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
+    #         99
+    #     ]
+    # ]
+
+    opt = [
+        # [
+        #     TCNAE,
+        #     {"seq_len": 43, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 3, "latent_dim": 10},
+        #     {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+        #     95
+        # ],
+        # [
+        #     TCNAE,
+        #     {"seq_len": 43, "input_dim": 1, "num_channels": [4, 8, 16], "kernel_size": 7, "latent_dim": 16},
+        #     {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+        #     95
+        # ],
+        [
+            TCNAE,
+            {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+            99
+        ],
+        [
+            TCNAE,
+            {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+            95
+        ]
+    ]
+    leave_one_subject_out(opt, "Results/LOSO_a200_b300_f44_seq43_finalRounds",
+                          a=200, b=300, f=44, fps=90,
+                          num_worker=0)
+
 if __name__=="__main__":
+
+    # execute_hyperparameter_search_TCNAE()
+    execute_loso_tcnae()
+
+
     # main()
     # opt = create_options(
     #     seq_len=61,   
@@ -654,26 +708,16 @@ if __name__=="__main__":
     # )
     
 
-    opt = [
-        [
-            TCNAE,
-            {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 7, "latent_dim": 10},
-            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
-            99
-        ],
-        [
-            TCNAE,
-            {"seq_len": 43, "input_dim": 1, "num_channels": [8, 16], "kernel_size": 5, "latent_dim": 16},
-            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
-            95
-        ],
-        [
-            TCNAE,
-            {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 3, "latent_dim": 10},
-            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
-            99
-        ]
-    ]
-    leave_one_subject_out(opt, "Results/LOSO_a200_b300_f44_seq43",
-                          a=200, b=300, f=44, fps=90,
-                          num_worker=0)
+
+    
+
+    # opt = [
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [16, 32, 64], "kernel_size": 7, "latent_dim": 10},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+    #         99
+    #     ]
+    # ]
+
+    # search_hyperparameter(opt, "Results/HyperparameterSearch_TCNAE_a200_b300_f44_seq43_finalRounds", f=44, a=200, b=300, fps=90)

@@ -1,0 +1,135 @@
+[
+    {
+        "model": "Isolation Forest",
+        "cond": "gaze",
+        "time": 0.054642475299931145,
+        "correct": 0.8651685393258427,
+        "incorrect": 0.9166666666666666
+    },
+    {
+        "model": "Isolation Forest",
+        "cond": "headAndGaze",
+        "time": 0.05276836347962233,
+        "correct": 0.7734104046242775,
+        "incorrect": 0.9285714285714286
+    },
+    {
+        "model": "Isolation Forest",
+        "cond": "nod",
+        "time": 0.05270775176420264,
+        "correct": 0.9192182410423453,
+        "incorrect": 0.8928571428571429
+    },
+    {
+        "model": "Local Outlier Factor",
+        "cond": "gaze",
+        "time": 0.01927082249718516,
+        "correct": 0.9181380417335474,
+        "incorrect": 0.9
+    },
+    {
+        "model": "Local Outlier Factor",
+        "cond": "headAndGaze",
+        "time": 0.01915547110387193,
+        "correct": 0.8479768786127168,
+        "incorrect": 0.9285714285714286
+    },
+    {
+        "model": "Local Outlier Factor",
+        "cond": "nod",
+        "time": 0.01915676883476657,
+        "correct": 0.9426710097719869,
+        "incorrect": 0.8571428571428571
+    },
+    {
+        "model": "One-Class SVM",
+        "cond": "gaze",
+        "time": 0.0001256568899292242,
+        "correct": 0.8667736757624398,
+        "incorrect": 0.9166666666666666
+    },
+    {
+        "model": "One-Class SVM",
+        "cond": "headAndGaze",
+        "time": 0.00011652761824488369,
+        "correct": 0.7745664739884393,
+        "incorrect": 0.9285714285714286
+    },
+    {
+        "model": "One-Class SVM",
+        "cond": "nod",
+        "time": 0.00011102559601486454,
+        "correct": 0.9270358306188925,
+        "incorrect": 0.9285714285714286
+    },
+    {
+        "model": "Elliptic Envelope",
+        "cond": "gaze",
+        "time": 0.00010360461228105644,
+        "correct": 0.8657035848047084,
+        "incorrect": 0.8833333333333333
+    },
+    {
+        "model": "Elliptic Envelope",
+        "cond": "headAndGaze",
+        "time": 0.0001121513407510007,
+        "correct": 0.7797687861271676,
+        "incorrect": 0.9285714285714286
+    },
+    {
+        "model": "Elliptic Envelope",
+        "cond": "nod",
+        "time": 0.00010813061062720862,
+        "correct": 0.9250814332247557,
+        "incorrect": 0.8928571428571429
+    },
+    {
+        "model": "TCNAE_1_gpu",
+        "cond": "gaze",
+        "time": 0.0010706391353295327,
+        "correct": 0.821294810058855,
+        "incorrect": 0.9166666666666666
+    },
+    {
+        "model": "TCNAE_1_gpu",
+        "cond": "gaze",
+        "time": 0.0010437357445581086,
+        "correct": 0.8731942215088283,
+        "incorrect": 0.9
+    },
+    {
+        "model": "TCNAE_1_cpu",
+        "cond": "gaze",
+        "time": 0.0009617788225659563,
+        "correct": 0.8731942215088283,
+        "incorrect": 0.9
+    },
+    {
+        "model": "TCNAE_1_gpu",
+        "cond": "headAndGaze",
+        "time": 0.0014217408944506185,
+        "correct": 0.915606936416185,
+        "incorrect": 0.8928571428571429
+    },
+    {
+        "model": "TCNAE_1_cpu",
+        "cond": "headAndGaze",
+        "time": 0.0009742847533072255,
+        "correct": 0.915606936416185,
+        "incorrect": 0.8928571428571429
+    },
+    {
+        "model": "TCNAE_1_gpu",
+        "cond": "nod",
+        "time": 0.0012009021742966548,
+        "correct": 0.9309446254071662,
+        "incorrect": 0.7142857142857143
+    },
+    {
+        "model": "TCNAE_1_cpu",
+        "cond": "nod",
+        "time": 0.001084958153382964,
+        "correct": 0.9309446254071662,
+        "incorrect": 0.7142857142857143
+    }
+]

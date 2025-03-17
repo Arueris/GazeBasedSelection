@@ -1,0 +1,164 @@
+[
+    {
+        "Model": "Isolation Forest",
+        "Condition": "gaze",
+        "Mean prediction time": 0.05475364541337649,
+        "Correct accuracy": 0.8576982892690513,
+        "Incorrect accuracy": 0.9545454545454546,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "Isolation Forest",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.05388206508364093,
+        "Correct accuracy": 0.7584434654919237,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "Isolation Forest",
+        "Condition": "nod",
+        "Mean prediction time": 0.05737026154416225,
+        "Correct accuracy": 0.9135004042037187,
+        "Incorrect accuracy": 0.8947368421052632,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    },
+    {
+        "Model": "Local Outlier Factor",
+        "Condition": "gaze",
+        "Mean prediction time": 0.020075852485220175,
+        "Correct accuracy": 0.9004665629860031,
+        "Incorrect accuracy": 0.9545454545454546,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "Local Outlier Factor",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.020239182160695354,
+        "Correct accuracy": 0.8237885462555066,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "Local Outlier Factor",
+        "Condition": "nod",
+        "Mean prediction time": 0.020229109553757396,
+        "Correct accuracy": 0.9377526273241714,
+        "Incorrect accuracy": 0.7894736842105263,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    },
+    {
+        "Model": "One-Class SVM",
+        "Condition": "gaze",
+        "Mean prediction time": 0.00010288161289609758,
+        "Correct accuracy": 0.8506998444790047,
+        "Incorrect accuracy": 0.9545454545454546,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "One-Class SVM",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.00010764064541052111,
+        "Correct accuracy": 0.7525697503671072,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "One-Class SVM",
+        "Condition": "nod",
+        "Mean prediction time": 0.000100186983235388,
+        "Correct accuracy": 0.9159256265157639,
+        "Incorrect accuracy": 0.8947368421052632,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    },
+    {
+        "Model": "Elliptic Envelope",
+        "Condition": "gaze",
+        "Mean prediction time": 0.00011030141410075373,
+        "Correct accuracy": 0.8561430793157077,
+        "Incorrect accuracy": 0.9545454545454546,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "Elliptic Envelope",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.0001158679100959018,
+        "Correct accuracy": 0.7584434654919237,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "Elliptic Envelope",
+        "Condition": "nod",
+        "Mean prediction time": 0.00012341807362813335,
+        "Correct accuracy": 0.9151172190784155,
+        "Incorrect accuracy": 0.8421052631578947,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    },
+    {
+        "Model": "TCNAE_1_gpu",
+        "Condition": "gaze",
+        "Mean prediction time": 0.0012011092516810088,
+        "Correct accuracy": 0.947900466562986,
+        "Incorrect accuracy": 0.8636363636363636,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "TCNAE_1_cpu",
+        "Condition": "gaze",
+        "Mean prediction time": 0.001030178249415597,
+        "Correct accuracy": 0.947900466562986,
+        "Incorrect accuracy": 0.8636363636363636,
+        "Count correct samples": 2572,
+        "Count incorrect samples": 44
+    },
+    {
+        "Model": "TCNAE_1_gpu",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.0013353584117590071,
+        "Correct accuracy": 0.8406754772393539,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "TCNAE_1_cpu",
+        "Condition": "headAndGaze",
+        "Mean prediction time": 0.001005264467868226,
+        "Correct accuracy": 0.8414096916299559,
+        "Incorrect accuracy": 0.9411764705882353,
+        "Count correct samples": 2724,
+        "Count incorrect samples": 34
+    },
+    {
+        "Model": "TCNAE_1_gpu",
+        "Condition": "nod",
+        "Mean prediction time": 0.0011303884552915544,
+        "Correct accuracy": 0.9951495553759094,
+        "Incorrect accuracy": 0.05263157894736842,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    },
+    {
+        "Model": "TCNAE_1_cpu",
+        "Condition": "nod",
+        "Mean prediction time": 0.0009354598332720343,
+        "Correct accuracy": 0.9951495553759094,
+        "Incorrect accuracy": 0.05263157894736842,
+        "Count correct samples": 2474,
+        "Count incorrect samples": 38
+    }
+]
