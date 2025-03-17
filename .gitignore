@@ -1,6 +1,7 @@
 Data/*
 Pictures/*
 AutoEncoder/Results/*
+AutoEncoder/*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
