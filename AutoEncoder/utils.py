@@ -26,6 +26,60 @@ def load_model(path, type, parameter):
     model.load_state_dict(torch.load(path))
     return model
 
+def load_raw_data(fps, cond, f, b, a, d_type="vel", pre_path="../"):
+    if d_type=="angles":
+        angles_correct = np.load(f"{pre_path}Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"{pre_path}Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+    elif d_type=="vel":
+        angles_correct = np.load(f"{pre_path}Data/Dataset_Prepare/anglesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/anglesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"{pre_path}Data/Dataset_Prepare/namesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/namesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+    elif d_type=="unityVel":
+        angles_correct = np.load(f"{pre_path}Data/Dataset_Prepare/unity_anglesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/unity_anglesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"{pre_path}Data/Dataset_Prepare/unity_namesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/unity_namesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+    else:
+        raise ValueError(f"Invalid d_type {d_type}")
+    return angles_correct, angles_incorrect, names_correct, names_incorrect
+
+def load_data(fps, cond, f, b, a, train_portion=0.7, d_type="vel", pre_path="../"):
+    """
+    Load the dataset for training and testing.
+    Parameters:
+        fps (int): Frames per second.
+        cond (str): Condition name.
+        f (int): Feature dimension.
+        b (int): time before selection
+        a (int): time after selection
+        train_portion (float): Portion of data to use for training.
+        d_type (str): Type of data ("angles" or "vel").
+        pre_path (str): Pre-path for loading data files.
+    """
+    if d_type=="angles":
+        angles_correct = np.load(f"{pre_path}Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"{pre_path}Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+    elif d_type=="vel":
+        angles_correct = np.load(f"{pre_path}Data/Dataset_Prepare/anglesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        angles_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/anglesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+        names_correct = np.load(f"{pre_path}Data/Dataset_Prepare/namesVel_fps{fps}_{cond}_Correct_b{b}_a{a}_finalRounds.npy")
+        names_incorrect = np.load(f"{pre_path}Data/Dataset_Prepare/namesVel_fps{fps}_{cond}_Incorrect_b{b}_a{a}_finalRounds.npy")
+    else:
+        raise ValueError(f"Invalid d_type {d_type}")
+    pat_names = np.unique(names_correct)
+    n = int(train_portion * len(pat_names))
+    train_pats = pat_names[:n]
+    test_pats = pat_names[n:]
+    train_data = angles_correct[np.isin(names_correct, train_pats)]
+    test_correct = angles_correct[np.isin(names_correct, test_pats)]
+    test_incorrect = angles_incorrect[np.isin(names_incorrect, test_pats)]
+    return train_data, test_correct, test_incorrect #, {'Names_correct': names_correct, 'Names_incorrect': names_incorrect, 'angles_correct': angles_correct, 'angles_incorrect': angles_incorrect, 'Train_pats': train_pats, 'Test_pats': test_pats}
+
 def load_np_dataset(fps, cond, f, b, a):
     angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}.npy")
     angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}.npy")

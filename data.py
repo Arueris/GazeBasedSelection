@@ -31,12 +31,16 @@ class Recording:
         return name, age, gender, etk_exp, vr_exp
 
     @staticmethod
-    def _read_condition(path, condition):
+    def _read_condition(path, condition, invalid_action="delete", raw_data=False):
         files = os.listdir(os.path.join(path, condition))
         scene_data = pd.read_table(os.path.join(path, condition, "SceneData.tsv"), sep="\t", decimal=",")
-        gaze_file = "gaze_event.csv" if "gaze_event.csv" in files else "gaze.csv"
+        gaze_file = "gaze_event.csv" if "gaze_event.csv" in files and not raw_data else "gaze.csv"
         gaze = pd.read_table(os.path.join(path, condition, gaze_file), sep="\t", decimal=",")
-        gaze = gaze.loc[gaze.isValid]
+        if invalid_action == "delete":
+            gaze = gaze.loc[gaze.isValid]
+        elif invalid_action == "last_valid":
+            gaze.loc[~gaze.isValid, ["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]] = np.nan
+            gaze[["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]] = gaze[["Local Gaze Direction %s" % x for x in ["X", "Y", "Z"]]].fillna(method="ffill")
         gaze120_file = "gaze_120fps_event.csv" if "gaze_120fps_event.csv" in files else "gaze_120fps.csv"
         gaze120 = pd.read_table(os.path.join(path, condition, gaze120_file), sep="\t", decimal=",")
         gaze120 = gaze120.loc[gaze120.isValid]
@@ -62,12 +66,12 @@ class Recording:
                 answers[condition][row.QuestionName] = row.Value
         return pd.DataFrame(answers)
     
-    def __init__(self, path) -> None:
+    def __init__(self, path, invalid_action="delete", raw_data=False) -> None:
         self.path = path
         self.name, self.age, self.gender, self.et_exp, self.vr_exp = Recording._read_user_informations(path)
         self.pref_method = None
         self.visual_aid = None
-        self.data = {c: Recording._read_condition(path, c) for c in Recording.conditions}
+        self.data = {c: Recording._read_condition(path, c, invalid_action=invalid_action, raw_data=raw_data) for c in Recording.conditions}
         self.answers = Recording._read_questionnaires(path)
         self.summarized_final_rounds = {cond: None for cond in Recording.conditions}
         self.group = self._check_group()
@@ -173,9 +177,9 @@ class Recording:
     
 
 class Recordings:
-    def __init__(self, path):
+    def __init__(self, path, invalid_action="delete", raw_data=False) -> None:
         pats = [x for x in os.listdir(path) if "." not in x]
-        self.recs = [Recording(os.path.join(path, x)) for x in tqdm(pats)]
+        self.recs = [Recording(os.path.join(path, x), invalid_action=invalid_action, raw_data=raw_data) for x in tqdm(pats)]
         self.pat_data = pd.read_csv(os.path.join(path, "pat_data.csv"), sep="\t", decimal=",", index_col=0)
         self._update_rec_data()
     
@@ -267,10 +271,7 @@ class Recordings:
 
 if __name__=="__main__":
     import time
-    path = "Data/TestRecordings"
-    user = "ALena"
-    # rec = Recording(os.path.join(path, user))
-    recs = Recordings(path)
-    print(recs.get_final_parameters("smoothPursuit"))
 
+    rec = Recording("Data/Dataset/Pat001", invalid_action="last_valid", raw_data=True)
+    print(rec["gaze"]["Gaze"]["Local Gaze Direction X"].head())
     

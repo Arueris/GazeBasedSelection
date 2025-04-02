@@ -117,7 +117,7 @@ def search_hyperparameter(options, foldername, f=62, a=200, b=300, fps=90):
             torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
-def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,99,100], f=62, a=200, b=500, fps=90):
+def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,99,100], f=62, a=200, b=500, fps=90, d_type="angles"):
     model_parameters_names = ["hidden_size", # lstm 
                         "num_channels", "kernel_size", # tcn 
                         "latent_dim"]
@@ -141,10 +141,12 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
     for cond in conditions:
         best_model_option = {"mean_res": -1}
         # savefolder = utils.create_unique_folder(os.path.join(savefolder_all, cond))
-        angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
-        angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
-        names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
-        names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+
+        # angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        # angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+        # names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+        # names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+        angles_correct, angles_incorrect, names_correct, names_incorrect = utils.load_raw_data(fps, cond, f, b, a, train_portion=0.7, d_type=d_type, pre_path="")
         pat_names = np.unique(names_correct)
         n = int(0.7 * len(pat_names))
         train_pats = pat_names[:n]
@@ -599,7 +601,7 @@ def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
 
     opt = create_options(
         models = [TCNAE],
-        seq_len=43,
+        seq_len=45,
         channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
         kernel_sizes = [3, 5, 7],
         latent_dims=[10, 16, 24],
@@ -607,7 +609,7 @@ def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
         num_epochs=[400],
         batch_sizes=[4000]
     )
-    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200msAfter", cv_n=5, th_percs=[95, 99], f=44, a=200, b=300, fps=90)
+    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200ms_vel", cv_n=5, th_percs=[95, 99], f=44, a=200, b=200, fps=90, d_type="vel")
     
 
 def execute_loso_tcnae():
@@ -664,8 +666,8 @@ def execute_loso_tcnae():
 
 if __name__=="__main__":
 
-    # execute_hyperparameter_search_TCNAE()
-    execute_loso_tcnae()
+    execute_hyperparameter_search_TCNAE()
+    # execute_loso_tcnae()
 
 
     # main()
