@@ -146,7 +146,8 @@ def search_hyperparameter_CV(options, foldername, cv_n=5, th_percs=[80,85,90,95,
         # angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
         # names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
         # names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
-        angles_correct, angles_incorrect, names_correct, names_incorrect = utils.load_raw_data(fps, cond, f, b, a, train_portion=0.7, d_type=d_type, pre_path="")
+        angles_correct, angles_incorrect, names_correct, names_incorrect = utils.load_raw_data(fps, cond, f, b, a, d_type=d_type, pre_path="")
+        # print(angles_correct.shape)
         pat_names = np.unique(names_correct)
         n = int(0.7 * len(pat_names))
         train_pats = pat_names[:n]
@@ -372,7 +373,7 @@ def search_hyperparameter_tcn(
                         torch.save(model.state_dict(), os.path.join(modelfolder, f"{model_name}.pth"))
 
 
-def leave_one_subject_out(options, foldername, f=62, a=200, b=500, fps=90, num_worker=0):
+def leave_one_subject_out(options, foldername, f=62, a=200, b=500, fps=90, d_type="unityVel", num_worker=0):
     """
     Create a leave_one_subject_out validation for each model defined in options.
 
@@ -421,10 +422,13 @@ def leave_one_subject_out(options, foldername, f=62, a=200, b=500, fps=90, num_w
         model_name = f"{m.__name__}_{model_number}"
         for cond in conditions:
             train_number += 1
-            angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
-            angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
-            names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
-            names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+            # angles_correct = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+            # angles_incorrect = np.load(f"Data/Dataset_Prepare/angles_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+            # names_correct = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Correct_f{f}_b{b}_a{a}_finalRounds.npy")
+            # names_incorrect = np.load(f"Data/Dataset_Prepare/names_fps{fps}_{cond}_Incorrect_f{f}_b{b}_a{a}_finalRounds.npy")
+            
+            angles_correct, angles_incorrect, names_correct, names_incorrect = utils.load_raw_data(fps, cond, f, b, a, d_type=d_type, pre_path="")
+        
             pat_names = np.unique(names_correct)
 
             for k, name in enumerate(pat_names):
@@ -584,7 +588,7 @@ def main():
     ]
     search_hyperparameter(options)
 
-def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
+def execute_hyperparameter_search_TCNAE(): 
     # opt = create_options(
     #         models = [TCNAE],
     #         seq_len=52,
@@ -601,7 +605,7 @@ def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
 
     opt = create_options(
         models = [TCNAE],
-        seq_len=45,
+        seq_len=36,
         channels = [[4, 8], [8, 16], [32, 64], [4, 8, 16], [16, 32, 64]],
         kernel_sizes = [3, 5, 7],
         latent_dims=[10, 16, 24],
@@ -609,7 +613,7 @@ def execute_hyperparameter_search_TCNAE(): # 200 and 300 ms after
         num_epochs=[400],
         batch_sizes=[4000]
     )
-    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200ms_vel", cv_n=5, th_percs=[95, 99], f=44, a=200, b=200, fps=90, d_type="vel")
+    search_hyperparameter_CV(opt, "Results/HyperparameterSearch_TCNAE_CV_200ms_unityVel", cv_n=5, th_percs=[95, 99], f=44, a=200, b=200, fps=90, d_type="unityVel")
     
 
 def execute_loso_tcnae():
@@ -634,7 +638,7 @@ def execute_loso_tcnae():
     #     ]
     # ]
 
-    opt = [
+    # opt = [
         # [
         #     TCNAE,
         #     {"seq_len": 43, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 3, "latent_dim": 10},
@@ -647,27 +651,47 @@ def execute_loso_tcnae():
         #     {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
         #     95
         # ],
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
+    #         99
+    #     ],
+    #     [
+    #         TCNAE,
+    #         {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
+    #         {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+    #         95
+    #     ]
+    # ]
+    opt = [
         [
             TCNAE,
-            {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
+            {"seq_len": 36, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 5, "latent_dim": 10},
             {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
-            99
+            95
         ],
         [
             TCNAE,
-            {"seq_len": 43, "input_dim": 1, "num_channels": [32, 64], "kernel_size": 3, "latent_dim": 10},
-            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.001, "use_gpu": True},
+            {"seq_len": 36, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 3, "latent_dim": 10},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.0001, "use_gpu": True},
+            95
+        ],
+        [
+            TCNAE,
+            {"seq_len": 36, "input_dim": 1, "num_channels": [4, 8], "kernel_size": 7, "latent_dim": 16},
+            {"num_epochs": 400, "batch_size": 4000, "criterion": nn.MSELoss(), "learning_rate": 0.01, "use_gpu": True},
             95
         ]
     ]
-    leave_one_subject_out(opt, "Results/LOSO_a200_b300_f44_seq43_finalRounds",
-                          a=200, b=300, f=44, fps=90,
-                          num_worker=0)
+    leave_one_subject_out(opt, "Results/LOSO_a200_b200_seq36_unityVel",
+                          a=200, b=200, f=44, fps=90,
+                          num_worker=0, d_type="unityVel")
 
 if __name__=="__main__":
 
-    execute_hyperparameter_search_TCNAE()
-    # execute_loso_tcnae()
+    # execute_hyperparameter_search_TCNAE()
+    execute_loso_tcnae()
 
 
     # main()

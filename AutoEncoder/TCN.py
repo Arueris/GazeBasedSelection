@@ -75,7 +75,7 @@ class TCNAE(nn.Module):
 
 if __name__=="__main__":
     parameter = {
-        'ts_len': 83,
+        'seq_len': 45,
         'num_channels': [16, 32, 64],
         'input_dim': 1,
         'kernel_size': 5,
@@ -83,7 +83,7 @@ if __name__=="__main__":
     }
     model = TCNAE(**parameter)
     # model = TCNAE(83, 1, [16, 32, 64])
-    tensor = torch.randn(5,83)
+    tensor = torch.randn(5,45)
     tensor = tensor[:, None, :]
     res = model(tensor)
     res_encoder = model.encoder(tensor)

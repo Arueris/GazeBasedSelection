@@ -1,0 +1,8 @@
+Aktueller Test mit unity velocities
+
+
+1. Suche nach Hyperparametern mit TCNAE 5-Fold CV:                                      in arbeit
+2. Analyse der CV um beste Hyperparameter zu finden
+3. Mit den besten Hyperparametern eine Leave-one-participant-out Analyse
+4. Alles in das Time measurement ipynb um zusammenfassende Ergebnisse zu haben
+5. Alles für Unity vorbereiten    
